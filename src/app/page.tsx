@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { MessageSquare, Brain, List } from 'lucide-react'
 
 interface HoverState {
   login: boolean
@@ -322,8 +323,8 @@ export default function FilmOdysseyHome() {
           </p>
         </div>
         
-        {/* Features Section - Three Separate Cards */}
-        <div className="w-full max-w-5xl mx-auto px-4 md:px-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-12">
+        {/* Features Section - Five Separate Cards */}
+        <div className="w-full max-w-6xl mx-auto px-4 md:px-6 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-12">
           {/* Feature 1 */}
           <Card className="text-center p-4 rounded-xl border-yellow-400/20 bg-black/40 backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/30 hover:bg-black/50">
             <CardContent className="p-0">
@@ -362,7 +363,40 @@ export default function FilmOdysseyHome() {
               <p className="text-gray-300 text-sm md:text-base">Keep track of films you want to watch.</p>
             </CardContent>
           </Card>
+
+          {/* Feature 4 - Messaging */}
+          <Card className="text-center p-4 rounded-xl border-yellow-400/20 bg-black/40 backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/30 hover:bg-black/50">
+            <CardContent className="p-0">
+              <div className="inline-flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-full bg-yellow-400/10 mb-3 md:mb-4">
+                <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-yellow-400" />
+              </div>
+              <h3 className="text-lg md:text-xl font-semibold mb-2 text-white">Messaging</h3>
+              <p className="text-gray-300 text-sm md:text-base">Talk about your film taste with other users through messaging feature.</p>
+            </CardContent>
+          </Card>
+
+          {/* Feature 5 - AI Recommendations */}
+          <Card className="text-center p-4 rounded-xl border-yellow-400/20 bg-black/40 backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/30 hover:bg-black/50">
+            <CardContent className="p-0">
+              <div className="inline-flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-full bg-yellow-400/10 mb-3 md:mb-4">
+                <Brain className="w-5 h-5 md:w-6 md:h-6 text-yellow-400" />
+              </div>
+              <h3 className="text-lg md:text-xl font-semibold mb-2 text-white">AI Recommendations</h3>
+              <p className="text-gray-300 text-sm md:text-base">Use the FilmOdyssey AI Assistant to ask for film recommendations based on your personal taste.</p>
+            </CardContent>
+          </Card>
+          {/* Feature 6 - Lists */}
+<Card className="text-center p-4 rounded-xl border-yellow-400/20 bg-black/40 backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/30 hover:bg-black/50">
+  <CardContent className="p-0">
+    <div className="inline-flex items-center justify-center w-12 h-12 md:w-14 md:h-14 rounded-full bg-yellow-400/10 mb-3 md:mb-4">
+      <List className="w-5 h-5 md:w-6 md:h-6 text-yellow-400" />
+    </div>
+    <h3 className="text-lg md:text-xl font-semibold mb-2 text-white">Lists</h3>
+    <p className="text-gray-300 text-sm md:text-base">Build custom lists to rank and organize films.</p>
+  </CardContent>
+</Card>
         </div>
+
 
         {/* New Feature Box - Track Your Cinematic Journey */}
         <Card className="w-full max-w-5xl mx-auto px-4 md:px-6 rounded-xl border-yellow-400/20 bg-black/40 backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/30 hover:bg-black/50 overflow-hidden">
