@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { useChat } from '@/hooks/useSocket'
 import { useSession } from 'next-auth/react'
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from 'next/image'
-import { Send, Clock, Check, CheckCheck, AlertCircle } from 'lucide-react'
+import { Send, Clock, Check, CheckCheck, Wifi, WifiOff } from 'lucide-react'
 
 interface ChatInterfaceProps {
   chatId: string
@@ -41,9 +40,9 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
   const {
     messages,
     sending,
+    loading,
     isConnected,
     typingUsers,
-    onlineUsers,
     sendMessage,
     startTyping,
     stopTyping
@@ -53,10 +52,12 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
   useEffect(() => {
     if (isConnected) {
       setConnectionStatus('connected')
+    } else if (loading) {
+      setConnectionStatus('connecting')
     } else {
       setConnectionStatus('disconnected')
     }
-  }, [isConnected])
+  }, [isConnected, loading])
 
   // Scroll to bottom on initial load and when new messages arrive
   useEffect(() => {
@@ -64,7 +65,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
 
     const container = messagesContainerRef.current
     
-    if (initialLoad && messages.length > 0) {
+    if (initialLoad && messages.length > 0 && !loading) {
       // Initial load - scroll to bottom immediately
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
@@ -79,7 +80,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
         }, 100)
       }
     }
-  }, [messages, autoScroll, initialLoad])
+  }, [messages, autoScroll, initialLoad, loading])
 
   const handleScroll = () => {
     if (!messagesContainerRef.current) return
@@ -91,7 +92,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
   }
 
   const handleSendMessage = async () => {
-    if (message.trim() && !sending) {
+    if (message.trim() && !sending && isConnected) {
       try {
         // Enable auto-scroll when sending a new message
         setAutoScroll(true)
@@ -113,7 +114,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
   }
 
   const handleTyping = () => {
-    if (message.trim()) {
+    if (message.trim() && isConnected) {
       startTyping()
     }
   }
@@ -142,7 +143,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     
     if (message.read) {
       return <CheckCheck className="h-3 w-3 text-blue-400" />
-    } else if (message.id && !message.id.startsWith('temp-')) {
+    } else if (message.id && !message.id.startsWith('temp-') && !message.id.startsWith('failed-')) {
       return <Check className="h-3 w-3 text-gray-400" />
     } else {
       return <Clock className="h-3 w-3 text-gray-400" />
@@ -150,6 +151,17 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
   }
 
   const currentTypingUsers = typingUsers.filter(user => user.chatId === chatId)
+
+  const getConnectionIcon = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return <Wifi className="h-3 w-3" />
+      case 'connecting':
+        return <Clock className="h-3 w-3" />
+      case 'disconnected':
+        return <WifiOff className="h-3 w-3" />
+    }
+  }
 
   return (
     <div className="flex flex-col h-[70vh] min-h-[500px] max-h-[800px]">
@@ -162,13 +174,10 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
           : 'bg-red-500/10 text-red-400 border-red-500/20'
       }`}>
         <div className="flex items-center justify-center gap-2">
-          <div className={`w-2 h-2 rounded-full animate-pulse ${
-            connectionStatus === 'connected' ? 'bg-green-400' :
-            connectionStatus === 'connecting' ? 'bg-yellow-400' : 'bg-red-400'
-          }`} />
+          {getConnectionIcon()}
           {connectionStatus === 'connected' && 'Connected to chat'}
           {connectionStatus === 'connecting' && 'Connecting...'}
-          {connectionStatus === 'disconnected' && 'Disconnected - Reconnecting...'}
+          {connectionStatus === 'disconnected' && 'Disconnected - Check your connection'}
         </div>
       </div>
 
@@ -178,7 +187,12 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-black/50 to-gray-900/30"
       >
-        {messages.length === 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-400 border-t-transparent"></div>
+            <p className="text-gray-400">Loading messages...</p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center">
               <Send className="h-8 w-8 text-yellow-400/60" />
@@ -225,11 +239,18 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
                   msg.senderId === session?.user?.id
                     ? 'bg-yellow-400 text-black shadow-yellow-400/20'
                     : 'bg-gray-800/80 text-white shadow-gray-800/20 border border-gray-700/50'
-                } ${msg.id.startsWith('temp-') ? 'opacity-70' : ''}`}>
+                } ${msg.id.startsWith('temp-') ? 'opacity-70' : ''} ${msg.id.startsWith('failed-') ? 'opacity-50' : ''}`}>
                   {/* Temporary message indicator */}
                   {msg.id.startsWith('temp-') && (
                     <div className="absolute -top-2 -right-2">
                       <Clock className="h-4 w-4 text-yellow-400 animate-spin" />
+                    </div>
+                  )}
+                  
+                  {/* Failed message indicator */}
+                  {msg.id.startsWith('failed-') && (
+                    <div className="absolute -top-2 -right-2">
+                      <WifiOff className="h-4 w-4 text-red-400" />
                     </div>
                   )}
                   
@@ -287,9 +308,10 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
                 handleTyping()
               }}
               onKeyPress={handleKeyPress}
-              placeholder={`Message ${recipientName}...`}
-              className="w-full border-yellow-400/30 bg-black/30 text-white placeholder-gray-400 rounded-2xl px-4 py-3 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-300"
+              placeholder={isConnected ? `Message ${recipientName}...` : 'Connecting...'}
+              className="w-full border-yellow-400/30 bg-black/30 text-white placeholder-gray-400 rounded-2xl px-4 py-3 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-300 disabled:opacity-50"
               disabled={!isConnected || sending}
+              maxLength={1000}
             />
           </div>
           <Button
@@ -318,7 +340,8 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
             Press Enter to send • Shift+Enter for new line
           </p>
           <p className={`text-xs ${
-            message.length > 900 ? 'text-red-400' : 'text-gray-500'
+            message.length > 900 ? 'text-red-400' : 
+            message.length > 700 ? 'text-yellow-400' : 'text-gray-500'
           }`}>
             {message.length}/1000
           </p>

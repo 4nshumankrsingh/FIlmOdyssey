@@ -15,6 +15,12 @@ interface ChatPageProps {
   }
 }
 
+interface PopulatedParticipant {
+  _id: any;
+  username: string;
+  profileImage?: string;
+}
+
 async function getChatData(conversationId: string, userId: string) {
   try {
     await connectMongoDB()
