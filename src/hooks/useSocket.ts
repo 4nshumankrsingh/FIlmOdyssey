@@ -1,0 +1,369 @@
+// src/hooks/useSocket.ts
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
+import { io, Socket } from 'socket.io-client'
+
+// Define Message interface at the top level
+interface Message {
+  id: string
+  content: string
+  senderId: string
+  recipientId: string
+  timestamp: string
+  type: 'text' | 'image'
+  read: boolean
+  sender?: {
+    id: string
+    username: string
+    profileImage?: string
+  }
+}
+
+interface TypingUser {
+  userId: string
+  username: string
+  chatId: string
+}
+
+export const useSocket = () => {
+  const { data: session } = useSession()
+  const [socket, setSocket] = useState<Socket | null>(null)
+  const [isConnected, setIsConnected] = useState(false)
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
+  const socketRef = useRef<Socket | null>(null)
+
+  // Connect to socket
+  useEffect(() => {
+    if (!session?.user?.id) return
+
+    const socketUrl = process.env.NEXT_PUBLIC_WS_URL || ''
+    const socketPath = process.env.WS_PATH || '/api/socketio'
+
+    const socketInstance = io(socketUrl, {
+      path: socketPath,
+      transports: ['websocket', 'polling'],
+      auth: {
+        userId: session.user.id,
+        username: session.user.username
+      }
+    })
+
+    socketRef.current = socketInstance
+    setSocket(socketInstance)
+
+    socketInstance.on('connect', () => {
+      console.log('Connected to server')
+      setIsConnected(true)
+      
+      // Join user's personal room
+      socketInstance.emit('join-user', session.user.id)
+    })
+
+    socketInstance.on('disconnect', () => {
+      console.log('Disconnected from server')
+      setIsConnected(false)
+    })
+
+    socketInstance.on('user-status-change', (data: { userId: string; isOnline: boolean }) => {
+      setOnlineUsers(prev => {
+        const newSet = new Set(prev)
+        if (data.isOnline) {
+          newSet.add(data.userId)
+        } else {
+          newSet.delete(data.userId)
+        }
+        return newSet
+      })
+    })
+
+    socketInstance.on('user-typing', (data: TypingUser) => {
+      setTypingUsers(prev => {
+        const filtered = prev.filter(user => 
+          !(user.userId === data.userId && user.chatId === data.chatId)
+        )
+        return [...filtered, data]
+      })
+    })
+
+    socketInstance.on('user-stop-typing', (data: { userId: string; chatId: string }) => {
+      setTypingUsers(prev => 
+        prev.filter(user => !(user.userId === data.userId && user.chatId === data.chatId))
+      )
+    })
+
+    return () => {
+      socketInstance.disconnect()
+      socketRef.current = null
+      setSocket(null)
+      setIsConnected(false)
+    }
+  }, [session?.user?.id, session?.user?.username])
+
+  // Socket event handlers
+  const joinChat = useCallback((chatId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('join-chat', chatId)
+    }
+  }, [])
+
+  const sendSocketMessage = useCallback((chatId: string, message: Message) => {
+    if (socketRef.current) {
+      socketRef.current.emit('send-message', {
+        chatId,
+        message
+      })
+    }
+  }, [])
+
+  const startTyping = useCallback((chatId: string) => {
+    if (socketRef.current && session?.user) {
+      socketRef.current.emit('typing-start', {
+        chatId,
+        userId: session.user.id,
+        username: session.user.username
+      })
+    }
+  }, [session?.user])
+
+  const stopTyping = useCallback((chatId: string) => {
+    if (socketRef.current && session?.user) {
+      socketRef.current.emit('typing-stop', {
+        chatId,
+        userId: session.user.id
+      })
+    }
+  }, [session?.user])
+
+  const markAsOnline = useCallback(() => {
+    if (socketRef.current && session?.user) {
+      socketRef.current.emit('user-online', session.user.id)
+    }
+  }, [session?.user])
+
+  // Event listeners setup
+  const onMessage = useCallback((callback: (message: Message) => void) => {
+    if (socketRef.current) {
+      socketRef.current.on('new-message', callback)
+      return () => {
+        socketRef.current?.off('new-message', callback)
+      }
+    }
+  }, [])
+
+  const onMessageSent = useCallback((callback: (data: { tempId: string; actualId: string }) => void) => {
+    if (socketRef.current) {
+      socketRef.current.on('message-sent', callback)
+      return () => {
+        socketRef.current?.off('message-sent', callback)
+      }
+    }
+  }, [])
+
+  const onMessageError = useCallback((callback: (data: { tempId: string; error: string }) => void) => {
+    if (socketRef.current) {
+      socketRef.current.on('message-error', callback)
+      return () => {
+        socketRef.current?.off('message-error', callback)
+      }
+    }
+  }, [])
+
+  const onUserOnline = useCallback((callback: (data: { userId: string }) => void) => {
+    if (socketRef.current) {
+      socketRef.current.on('user-online', callback)
+      return () => {
+        socketRef.current?.off('user-online', callback)
+      }
+    }
+  }, [])
+
+  const onUserOffline = useCallback((callback: (data: { userId: string }) => void) => {
+    if (socketRef.current) {
+      socketRef.current.on('user-offline', callback)
+      return () => {
+        socketRef.current?.off('user-offline', callback)
+      }
+    }
+  }, [])
+
+  return {
+    socket: socketRef.current,
+    isConnected,
+    typingUsers,
+    onlineUsers,
+    
+    // Methods
+    joinChat,
+    sendSocketMessage,
+    startTyping,
+    stopTyping,
+    markAsOnline,
+    
+    // Event listeners
+    onMessage,
+    onMessageSent,
+    onMessageError,
+    onUserOnline,
+    onUserOffline
+  }
+}
+
+// Hook for specific chat
+export const useChat = (chatId?: string) => {
+  const { 
+    socket, 
+    isConnected, 
+    typingUsers, 
+    onlineUsers,
+    joinChat,
+    sendSocketMessage,
+    startTyping,
+    stopTyping,
+    onMessage,
+    onMessageSent,
+    onMessageError
+  } = useSocket()
+
+  const { data: session } = useSession()
+  const [messages, setMessages] = useState<Message[]>([])
+  const [sending, setSending] = useState(false)
+
+  // Load existing messages when chatId changes
+  useEffect(() => {
+    if (chatId && session?.user?.id) {
+      fetchMessages()
+    }
+  }, [chatId, session?.user?.id])
+
+  // Join chat when chatId changes
+  useEffect(() => {
+    if (chatId && isConnected) {
+      joinChat(chatId)
+    }
+  }, [chatId, isConnected, joinChat])
+
+  const fetchMessages = async () => {
+    try {
+      const response = await fetch(`/api/chat/messages/${chatId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setMessages(data.messages || [])
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error)
+    }
+  }
+
+  // Set up message listeners - FIXED: Proper real-time message handling
+  useEffect(() => {
+    const unsubscribeMessage = onMessage((message: Message) => {
+      console.log('Received new message:', message)
+      setMessages(prev => {
+        // Avoid duplicate messages
+        if (prev.some(msg => msg.id === message.id)) {
+          return prev
+        }
+        return [...prev, message]
+      })
+    })
+
+    const unsubscribeMessageSent = onMessageSent((data: { tempId: string; actualId: string }) => {
+      console.log('Message sent confirmation:', data)
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === data.tempId ? { ...msg, id: data.actualId } : msg
+        )
+      )
+    })
+
+    return () => {
+      unsubscribeMessage?.()
+      unsubscribeMessageSent?.()
+    }
+  }, [onMessage, onMessageSent])
+
+  const sendMessage = useCallback(async (content: string) => {
+    if (!chatId || !session?.user?.id) return
+
+    const tempId = `temp-${Date.now()}`
+    const tempMessage: Message = {
+      id: tempId,
+      content,
+      senderId: session.user.id,
+      recipientId: chatId,
+      timestamp: new Date().toISOString(),
+      type: 'text',
+      read: false,
+      sender: {
+        id: session.user.id,
+        username: session.user.username || '',
+      }
+    }
+
+    setSending(true)
+    // Immediately add the message to the UI
+    setMessages(prev => [...prev, tempMessage])
+    
+    try {
+      // Send via API
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId,
+          content,
+          tempId
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Message sent successfully:', data)
+        
+        // Update the temporary message with the actual one from server
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === tempId ? { ...data.message, read: true } : msg
+          )
+        )
+        
+        // Also send via Socket.io for real-time to other users
+        sendSocketMessage(chatId, data.message)
+      } else {
+        console.error('Failed to send message')
+        // Mark temporary message as failed
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === tempId ? { ...msg, id: `failed-${tempId}` } : msg
+          )
+        )
+      }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      // Mark temporary message as failed
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.id === tempId ? { ...msg, id: `failed-${tempId}` } : msg
+        )
+      )
+    } finally {
+      setSending(false)
+    }
+  }, [chatId, session?.user?.id, session?.user?.username, sendSocketMessage])
+
+  const currentTypingUsers = typingUsers.filter(user => user.chatId === chatId)
+
+  return {
+    messages,
+    sending,
+    isConnected,
+    typingUsers: currentTypingUsers,
+    onlineUsers,
+    sendMessage,
+    startTyping: () => chatId && startTyping(chatId),
+    stopTyping: () => chatId && stopTyping(chatId)
+  }
+}
