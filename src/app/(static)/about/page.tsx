@@ -346,7 +346,7 @@ export default function AboutPage() {
       <footer className="text-center py-6 md:py-8 text-sm text-gray-400 bg-black/60 backdrop-blur-sm relative z-10 border-t border-yellow-400/20 mt-12">
         <div className="max-w-6xl mx-auto px-4">
           <p>© 2025 FilmOdyssey. All rights reserved.</p>
-          <p className="mt-2 text-xs">Built with passion for cinema lovers everywhere.</p>
+          <p className="mt-2 text-xs">Built with Next.js 15 by Anshuman Kumar Singh.</p>
         </div>
       </footer>
     </div>
