@@ -1,12 +1,15 @@
 {
   "name": "filmodyssey",
   "version": "0.1.0",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "node server.js",
     "build": "next build",
     "start": "node server.js",
-    "lint": "next lint"
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "types:check": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^1.21.0",
