@@ -20,7 +20,20 @@ const nextConfig = {
         port: '',
         pathname: '/vi/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'film-odyssey.vercel.app',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'localhost',
+        port: '3000',
+        pathname: '/**',
+      },
     ],
+    domains: ['film-odyssey.vercel.app', 'localhost'],
   },
   async headers() {
     return [
