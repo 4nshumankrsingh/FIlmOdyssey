@@ -156,7 +156,8 @@ export default function SettingsPage() {
       })
 
       if (response.ok) {
-        await fetchUserSettings()
+        // Redirect to profile page after successful save
+        router.push(`/user/${settings.username}`)
       } else {
         const errorData = await response.json()
         alert(errorData.error || 'Error saving settings')
