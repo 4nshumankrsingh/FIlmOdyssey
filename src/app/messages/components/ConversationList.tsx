@@ -1,9 +1,12 @@
+// src/app/messages/components/ConversationList.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSocket } from '@/hooks/useSocket'
 import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { RefreshCw } from 'lucide-react'
 
 interface Conversation {
   id: string
@@ -23,7 +26,8 @@ interface Conversation {
 export function ConversationList() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loading, setLoading] = useState(true)
-  const { onlineUsers, isConnected } = useSocket()
+  const [refreshing, setRefreshing] = useState(false)
+  const { isConnected } = useSocket()
 
   useEffect(() => {
     fetchConversations()
@@ -31,6 +35,7 @@ export function ConversationList() {
 
   const fetchConversations = async () => {
     try {
+      setLoading(true)
       const response = await fetch('/api/chat/conversations')
       if (response.ok) {
         const data = await response.json()
@@ -42,7 +47,13 @@ export function ConversationList() {
       console.error('Error fetching conversations:', error)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
+  }
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    fetchConversations()
   }
 
   if (loading) {
@@ -70,11 +81,22 @@ export function ConversationList() {
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-yellow-400">Messages</h2>
-          <div className={`flex items-center gap-2 text-sm ${
-            isConnected ? 'text-green-400' : 'text-red-400'
-          }`}>
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
-            {isConnected ? 'Connected' : 'Disconnected'}
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 text-sm ${
+              isConnected ? 'text-green-400' : 'text-red-400'
+            }`}>
+              <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`} />
+              {isConnected ? 'Connected' : 'Disconnected'}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="h-8 w-8 p-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
         </div>
 
@@ -99,9 +121,7 @@ export function ConversationList() {
                             </span>
                           )}
                         </div>
-                        {onlineUsers.has(conversation.participant.id) && (
-                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-black" />
-                        )}
+                        {/* Online status removed since we don't have real-time presence with SSE */}
                       </div>
                       <div>
                         <h3 className="font-semibold text-white">
