@@ -8,7 +8,7 @@
   <img src="/public/logo.png" alt="FilmOdyssey Logo" width="200" />
 </div>
 
-## Introduction ✍️
+## ✍️ Introduction 
 
 <div align="center">
   <img src="/public/home-page.png" alt="FilmOdyssey Home Page" width="800" />
