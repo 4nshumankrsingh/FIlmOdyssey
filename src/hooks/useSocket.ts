@@ -1,9 +1,10 @@
 // src/hooks/useSocket.ts
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { io, Socket } from 'socket.io-client'
+import { Socket } from 'socket.io-client'
+import { socketClient } from '@/lib/socket-client'
 
-// Define Message interface at the top level
+// Define Message interface
 interface Message {
   id: string
   content: string
@@ -40,65 +41,35 @@ export const useSocket = () => {
       return
     }
 
-    const connectSocket = () => {
+    const initializeSocket = () => {
       try {
-        // In production, use the same origin
-        const socketUrl = typeof window !== 'undefined' 
-          ? window.location.origin 
-          : process.env.NEXT_PUBLIC_WS_URL || ''
+        console.log('🔄 Initializing WebSocket connection for user:', session.user.id)
         
-        const socketPath = process.env.WS_PATH || '/api/socketio'
+        const socket = socketClient.connect(session.user.id, session.user.username)
+        
+        if (!socket) {
+          console.error('Failed to create socket connection')
+          return
+        }
 
-        console.log('🔌 Initializing WebSocket connection:', { 
-          socketUrl, 
-          socketPath,
-          userId: session.user.id 
-        })
+        socketRef.current = socket
 
-        const socketInstance = io(socketUrl, {
-          path: socketPath,
-          transports: ['websocket', 'polling'],
-          timeout: 10000,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-          auth: {
-            userId: session.user.id,
-            username: session.user.username
-          }
-        })
-
-        socketRef.current = socketInstance
-
-        socketInstance.on('connect', () => {
+        socket.on('connect', () => {
           console.log('✅ WebSocket connected successfully')
           setIsConnected(true)
-          
-          // Join user's personal room
-          socketInstance.emit('join-user', session.user.id)
         })
 
-        socketInstance.on('disconnect', (reason) => {
+        socket.on('disconnect', (reason) => {
           console.log('🔌 WebSocket disconnected:', reason)
           setIsConnected(false)
         })
 
-        socketInstance.on('connect_error', (error) => {
+        socket.on('connect_error', (error) => {
           console.error('❌ WebSocket connection error:', error)
           setIsConnected(false)
-          
-          // Attempt reconnection after delay
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current)
-          }
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (socketRef.current && !socketRef.current.connected) {
-              console.log('🔄 Attempting to reconnect...')
-              socketRef.current.connect()
-            }
-          }, 3000)
         })
 
-        socketInstance.on('user-status-change', (data: { userId: string; isOnline: boolean }) => {
+        socket.on('user-status-change', (data: { userId: string; isOnline: boolean }) => {
           setOnlineUsers(prev => {
             const newSet = new Set(prev)
             if (data.isOnline) {
@@ -110,7 +81,7 @@ export const useSocket = () => {
           })
         })
 
-        socketInstance.on('user-typing', (data: TypingUser) => {
+        socket.on('user-typing', (data: TypingUser) => {
           setTypingUsers(prev => {
             const filtered = prev.filter(user => 
               !(user.userId === data.userId && user.chatId === data.chatId)
@@ -119,7 +90,7 @@ export const useSocket = () => {
           })
         })
 
-        socketInstance.on('user-stop-typing', (data: { userId: string; chatId: string }) => {
+        socket.on('user-stop-typing', (data: { userId: string; chatId: string }) => {
           setTypingUsers(prev => 
             prev.filter(user => !(user.userId === data.userId && user.chatId === data.chatId))
           )
@@ -131,12 +102,11 @@ export const useSocket = () => {
       }
     }
 
-    connectSocket()
+    initializeSocket()
 
     return () => {
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current)
-        reconnectTimeoutRef.current = null
       }
       if (socketRef.current) {
         console.log('🧹 Cleaning up WebSocket connection')
@@ -163,8 +133,10 @@ export const useSocket = () => {
         chatId,
         message
       })
+      return true
     } else {
       console.warn('Cannot send message: Socket not connected')
+      return false
     }
   }, [isConnected])
 
@@ -201,6 +173,7 @@ export const useSocket = () => {
         socketRef.current?.off('new-message', callback)
       }
     }
+    return () => {}
   }, [])
 
   const onMessageSent = useCallback((callback: (data: { tempId: string; actualId: string }) => void) => {
@@ -210,6 +183,7 @@ export const useSocket = () => {
         socketRef.current?.off('message-sent', callback)
       }
     }
+    return () => {}
   }, [])
 
   const onMessageError = useCallback((callback: (data: { tempId: string; error: string }) => void) => {
@@ -219,6 +193,7 @@ export const useSocket = () => {
         socketRef.current?.off('message-error', callback)
       }
     }
+    return () => {}
   }, [])
 
   const onUserOnline = useCallback((callback: (data: { userId: string }) => void) => {
@@ -228,6 +203,7 @@ export const useSocket = () => {
         socketRef.current?.off('user-online', callback)
       }
     }
+    return () => {}
   }, [])
 
   const onUserOffline = useCallback((callback: (data: { userId: string }) => void) => {
@@ -237,6 +213,7 @@ export const useSocket = () => {
         socketRef.current?.off('user-offline', callback)
       }
     }
+    return () => {}
   }, [])
 
   return {
@@ -294,7 +271,9 @@ export const useChat = (chatId?: string) => {
     }
   }, [chatId, isConnected, joinChat])
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
+    if (!chatId) return
+    
     try {
       setLoading(true)
       const response = await fetch(`/api/chat/messages/${chatId}`)
@@ -309,7 +288,7 @@ export const useChat = (chatId?: string) => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [chatId])
 
   // Set up message listeners
   useEffect(() => {
@@ -334,8 +313,8 @@ export const useChat = (chatId?: string) => {
     })
 
     return () => {
-      unsubscribeMessage?.()
-      unsubscribeMessageSent?.()
+      unsubscribeMessage()
+      unsubscribeMessageSent()
     }
   }, [onMessage, onMessageSent])
 
@@ -421,6 +400,7 @@ export const useChat = (chatId?: string) => {
     onlineUsers,
     sendMessage,
     startTyping: () => chatId && startTyping(chatId),
-    stopTyping: () => chatId && stopTyping(chatId)
+    stopTyping: () => chatId && stopTyping(chatId),
+    refetchMessages: fetchMessages
   }
 }
