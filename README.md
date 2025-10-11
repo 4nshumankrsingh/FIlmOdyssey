@@ -4,6 +4,10 @@
   <p><em>A Social Platform for Film Enthusiasts</em></p>
 </div>
 
+<div align="center">
+  <img src="/public/logo.png" alt="FilmOdyssey Logo" width="200" />
+</div>
+
 ## Introduction ✍️
 
 <div align="center">
@@ -12,9 +16,7 @@
 
 FilmOdyssey is a comprehensive social platform designed for film enthusiasts to enhance their movie-watching experience. Developed with Next.js and integrated with advanced AI features, it allows users to search for movies, rate and review them, and track their viewing history. The app offers personalized watchlists, enables users to follow friends, and facilitates sharing cinematic experiences. With AI-powered recommendations, FilmOdyssey revolutionizes movie discovery.
 
-<div align="center">
-  <img src="/public/logo.png" alt="FilmOdyssey Logo" width="200" />
-</div>
+
 
 ## 🛠️ Tech Stack
 
