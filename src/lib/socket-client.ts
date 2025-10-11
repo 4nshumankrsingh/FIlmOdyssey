@@ -14,15 +14,27 @@ class SocketClient {
       return this.socket
     }
 
-    // Use the public WS URL directly for production
-    const socketUrl = 'https://film-odyssey.vercel.app'
-    const socketPath = '/api/socketio'
+    // Use environment-aware URL selection
+    let socketUrl: string
+    let socketPath: string
+    
+    if (typeof window !== 'undefined') {
+      // Client-side: Use public URL for production, current origin for development
+      socketUrl = process.env.NODE_ENV === 'production' 
+        ? 'https://film-odyssey.vercel.app'
+        : window.location.origin
+    } else {
+      // Server-side: Use environment variables
+      socketUrl = process.env.NEXT_PUBLIC_WS_URL || 'https://film-odyssey.vercel.app'
+    }
+    
+    socketPath = '/api/socketio'
     
     console.log('🔌 Connecting to WebSocket:', { 
       socketUrl, 
       socketPath,
       userId,
-      environment: 'production' 
+      environment: process.env.NODE_ENV 
     })
     
     try {

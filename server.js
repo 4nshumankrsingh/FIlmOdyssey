@@ -12,23 +12,28 @@ const PORT = process.env.PORT || 3000
 const NEXTAUTH_URL = process.env.NEXTAUTH_URL || "https://film-odyssey.vercel.app"
 const WS_PATH = process.env.WS_PATH || '/api/socketio'
 
-// Allowed origins for production - use exact production URL
+// Allowed origins - include both production and development URLs
 const allowedOrigins = [
   "https://film-odyssey.vercel.app",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
   NEXTAUTH_URL
 ].filter(Boolean).map(origin => origin.replace(/\/$/, ''))
 
-// Remove localhost from production allowed origins
-const productionOrigins = allowedOrigins.filter(origin => 
-  !origin.includes('localhost') && !origin.includes('127.0.0.1')
-)
+// Use different CORS strategy based on environment
+const corsOrigins = dev 
+  ? allowedOrigins // More permissive in development
+  : allowedOrigins.filter(origin => 
+      origin.includes('film-odyssey.vercel.app') || 
+      origin === NEXTAUTH_URL
+    ) // Strict in production
 
-console.log('🚀 Starting production server with configuration:', {
+console.log('🚀 Starting server with configuration:', {
   PORT,
   NEXTAUTH_URL,
   WS_PATH,
-  allowedOrigins: productionOrigins,
-  environment: process.env.NODE_ENV || 'production'
+  corsOrigins,
+  environment: dev ? 'development' : 'production'
 })
 
 app.prepare().then(() => {
@@ -41,23 +46,30 @@ app.prepare().then(() => {
     path: WS_PATH,
     cors: {
       origin: function (origin, callback) {
-        // In production, be more strict about origins
+        // Allow requests with no origin (like mobile apps or server-to-server)
         if (!origin) {
-          console.log('🚫 Blocked request with no origin')
+          if (dev) {
+            return callback(null, true)
+          }
+          console.log('🚫 Blocked request with no origin in production')
           return callback(new Error('No origin provided'), false)
         }
         
-        // Check if origin is in allowed list (exact match for production)
+        // Normalize origin
         const normalizedOrigin = origin.replace(/\/$/, '')
-        const isAllowed = productionOrigins.some(allowed => 
-          normalizedOrigin === allowed
+        
+        // Check if origin is in allowed list
+        const isAllowed = corsOrigins.some(allowed => 
+          normalizedOrigin === allowed ||
+          (dev && normalizedOrigin.startsWith('http://localhost')) ||
+          (dev && normalizedOrigin.startsWith('http://127.0.0.1'))
         )
         
         if (isAllowed) {
           callback(null, true)
         } else {
-          console.log('🚫 Blocked origin:', origin, 'Allowed:', productionOrigins)
-          callback(new Error('Not allowed by CORS'))
+          console.log('🚫 Blocked origin:', origin, 'Allowed:', corsOrigins)
+          callback(new Error('Not allowed by CORS'), false)
         }
       },
       methods: ["GET", "POST"],
@@ -136,9 +148,10 @@ app.prepare().then(() => {
 
   server.listen(PORT, (err) => {
     if (err) throw err
-    console.log(`> 🚀 Production server ready on ${NEXTAUTH_URL}`)
+    console.log(`> 🚀 Server ready on ${NEXTAUTH_URL}`)
     console.log(`> 🔌 Socket.io server running at path: ${WS_PATH}`)
-    console.log(`> 🌐 Strict CORS enabled for:`, productionOrigins)
+    console.log(`> 🌐 CORS enabled for:`, corsOrigins)
     console.log(`> 📡 WebSocket server running on port ${PORT}`)
+    console.log(`> 🔧 Environment: ${dev ? 'development' : 'production'}`)
   })
 })
