@@ -12,8 +12,18 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    // Validate username parameter
+    if (!params.username || params.username.trim() === '') {
+      return NextResponse.json(
+        { error: 'Username is required' },
+        { status: 400 }
+      )
+    }
+
+    const username = params.username.trim()
+    
     // Generate cache key
-    const cacheKey = CACHE_KEYS.USER.PROFILE(params.username)
+    const cacheKey = CACHE_KEYS.USER.PROFILE(username)
 
     // Use cache with fallback
     const userData = await cacheWithFallback(
@@ -21,10 +31,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       async () => {
         await connectMongoDB()
         
-        const user = await User.findOne({ username: params.username })
+        // Case-insensitive search and handle username formatting
+        const user = await User.findOne({ 
+          username: { $regex: new RegExp(`^${username}$`, 'i') }
+        })
         
         if (!user) {
-          throw new Error('User not found')
+          throw new Error('USER_NOT_FOUND')
         }
 
         // Get favorite films - always return exactly 4 positions
@@ -63,20 +76,32 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           updatedAt: user.updatedAt
         }
       },
-      CACHE_TTL.SHORT // 5 minutes for user profiles (can change frequently)
+      CACHE_TTL.SHORT
     )
 
     return NextResponse.json(userData)
   } catch (error) {
     console.error('Error fetching user data:', error)
     
-    if (error instanceof Error && error.message === 'User not found') {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+    // Handle specific error types
+    if (error instanceof Error) {
+      if (error.message === 'USER_NOT_FOUND') {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        )
+      }
+      
+      // Handle MongoDB connection errors
+      if (error.message.includes('Mongo') || error.message.includes('database')) {
+        return NextResponse.json(
+          { error: 'Database connection error' },
+          { status: 503 }
+        )
+      }
     }
     
+    // Generic error response
     return NextResponse.json(
       { error: 'Failed to fetch user data' },
       { status: 500 }
