@@ -1,4 +1,3 @@
-// src/app/messages/components/ChatInterface.tsx
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -81,14 +80,14 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     }
   }, [messages, autoScroll, initialLoad, loading])
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (!messagesContainerRef.current) return
 
     const container = messagesContainerRef.current
     const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 10
     
     setAutoScroll(isAtBottom)
-  }
+  }, [])
 
   const handleSendMessage = async () => {
     if (message.trim() && !sending) {
@@ -117,8 +116,6 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     if (refetchMessages) {
       refetchMessages()
     }
-    // Also trigger a page refresh to re-establish SSE connection
-    window.location.reload()
   }, [refetchMessages])
 
   const formatTime = (timestamp: string) => {
@@ -149,6 +146,8 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
         return <RefreshCw className="h-3 w-3 animate-spin" />
       case 'disconnected':
         return <div className="w-2 h-2 bg-red-400 rounded-full" />
+      default:
+        return <div className="w-2 h-2 bg-gray-400 rounded-full" />
     }
   }
 
@@ -160,8 +159,19 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
         return 'Connecting...'
       case 'disconnected':
         return 'Disconnected - Check your connection'
+      default:
+        return 'Unknown connection status'
     }
   }
+
+  // Add scroll event listener
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (container) {
+      container.addEventListener('scroll', handleScroll)
+      return () => container.removeEventListener('scroll', handleScroll)
+    }
+  }, [handleScroll])
 
   return (
     <div className="flex flex-col h-[70vh] min-h-[500px] max-h-[800px]">
@@ -175,7 +185,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
       }`}>
         <div className="flex items-center gap-2">
           {getConnectionIcon()}
-          {getConnectionText()}
+          <span>{getConnectionText()}</span>
         </div>
         
         {connectionStatus === 'disconnected' && (
@@ -194,7 +204,6 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
       {/* Messages Area */}
       <div 
         ref={messagesContainerRef}
-        onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-black/50 to-gray-900/30"
       >
         {loading ? (
@@ -234,10 +243,14 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
                           width={32}
                           height={32}
                           className="rounded-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement
+                            target.style.display = 'none'
+                          }}
                         />
                       ) : (
                         <span className="text-yellow-400 text-xs font-semibold">
-                          {msg.sender?.username?.[0].toUpperCase() || 'U'}
+                          {msg.sender?.username?.[0]?.toUpperCase() || 'U'}
                         </span>
                       )}
                     </div>
@@ -295,7 +308,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder={connectionStatus === 'connected' ? `Message ${recipientName}...` : 'Connecting...'}
               className="w-full border-yellow-400/30 bg-black/30 text-white placeholder-gray-400 rounded-2xl px-4 py-3 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-300 disabled:opacity-50"
               disabled={sending || connectionStatus === 'disconnected'}

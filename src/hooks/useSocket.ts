@@ -34,7 +34,7 @@ export const useSocket = () => {
     sseClient.connect(session.user.id)
     
     // Listen for connection changes
-    const unsubscribeConnection = sseClient.onConnectionChange((connected) => {
+    const unsubscribeConnection = sseClient.onConnectionChange((connected: boolean) => {
       console.log('🔌 SSE Connection state changed:', connected)
       setIsConnected(connected)
       connectionRef.current = connected

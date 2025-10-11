@@ -4,7 +4,6 @@ import { authOptions } from '@/lib/auth'
 import { ChatInterface } from '../components/ChatInterface'
 import { connectMongoDB } from '@/lib/mongodb'
 import { Chat } from '@/model/Chat'
-import User from '@/model/User'
 import Link from 'next/link'
 import { ArrowLeft, Users, MoreVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,12 +15,22 @@ interface ChatPageProps {
 }
 
 interface PopulatedParticipant {
-  _id: any;
+  _id: string;
   username: string;
   profileImage?: string;
 }
 
-async function getChatData(conversationId: string, userId: string) {
+interface ChatData {
+  id: string;
+  recipient: {
+    id: string;
+    username: string;
+    profileImage?: string;
+  };
+  isValid: boolean;
+}
+
+async function getChatData(conversationId: string, userId: string): Promise<ChatData> {
   try {
     await connectMongoDB()
 
@@ -30,7 +39,7 @@ async function getChatData(conversationId: string, userId: string) {
       .lean();
 
     if (!chat || !(chat as any).participants.some((p: any) => p._id.toString() === userId)) {
-      return { isValid: false };
+      return { isValid: false } as ChatData;
     }
 
     const otherParticipant = (chat as any).participants.find(
@@ -38,7 +47,7 @@ async function getChatData(conversationId: string, userId: string) {
     );
 
     if (!otherParticipant) {
-      return { isValid: false };
+      return { isValid: false } as ChatData;
     }
 
     return {
@@ -52,7 +61,7 @@ async function getChatData(conversationId: string, userId: string) {
     };
   } catch (error) {
     console.error('Error fetching chat data:', error);
-    return { isValid: false };
+    return { isValid: false } as ChatData;
   }
 }
 

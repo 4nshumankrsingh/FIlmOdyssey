@@ -1,4 +1,3 @@
-// src/app/messages/components/ConversationList.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -7,6 +6,7 @@ import { useSocket } from '@/hooks/useSocket'
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RefreshCw } from 'lucide-react'
+import Image from 'next/image'
 
 interface Conversation {
   id: string
@@ -108,20 +108,25 @@ export function ConversationList() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-yellow-400/10 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-yellow-400/10 flex items-center justify-center overflow-hidden">
                           {conversation.participant.profileImage ? (
-                            <img
+                            <Image
                               src={conversation.participant.profileImage}
                               alt={conversation.participant.username}
-                              className="w-10 h-10 rounded-full object-cover"
+                              width={40}
+                              height={40}
+                              className="rounded-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                              }}
                             />
                           ) : (
                             <span className="text-yellow-400 text-sm font-semibold">
-                              {conversation.participant.username[0].toUpperCase()}
+                              {conversation.participant.username[0]?.toUpperCase() || 'U'}
                             </span>
                           )}
                         </div>
-                        {/* Online status removed since we don't have real-time presence with SSE */}
                       </div>
                       <div>
                         <h3 className="font-semibold text-white">
