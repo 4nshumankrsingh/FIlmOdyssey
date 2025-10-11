@@ -1,12 +1,11 @@
 {
   "name": "filmodyssey",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
   "scripts": {
-    "dev": "node server.js",
+    "dev": "next dev",
     "build": "next build",
-    "start": "node server.js",
+    "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "types:check": "tsc --noEmit"
