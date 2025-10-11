@@ -1,12 +1,13 @@
+// src/app/messages/components/ChatInterface.tsx
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useChat } from '@/hooks/useSocket'
 import { useSession } from 'next-auth/react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from 'next/image'
-import { Send, Clock, Check, CheckCheck, Wifi, WifiOff } from 'lucide-react'
+import { Send, Clock, Check, CheckCheck, Wifi, WifiOff, RefreshCw } from 'lucide-react'
 
 interface ChatInterfaceProps {
   chatId: string
@@ -45,7 +46,8 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     typingUsers,
     sendMessage,
     startTyping,
-    stopTyping
+    stopTyping,
+    refetchMessages
   } = useChat(chatId)
 
   // Update connection status
@@ -92,7 +94,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
   }
 
   const handleSendMessage = async () => {
-    if (message.trim() && !sending && isConnected) {
+    if (message.trim() && !sending) {
       try {
         // Enable auto-scroll when sending a new message
         setAutoScroll(true)
@@ -113,22 +115,31 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     }
   }
 
-  const handleTyping = () => {
-    if (message.trim() && isConnected) {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setMessage(value)
+    
+    if (value.trim()) {
       startTyping()
+    } else {
+      stopTyping()
     }
   }
 
   // Debounced typing stop
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (message.trim()) {
-        stopTyping()
-      }
+      stopTyping()
     }, 1000)
 
     return () => clearTimeout(timer)
   }, [message, stopTyping])
+
+  const handleRetryConnection = useCallback(() => {
+    if (refetchMessages) {
+      refetchMessages()
+    }
+  }, [refetchMessages])
 
   const formatTime = (timestamp: string) => {
     return new Date(timestamp).toLocaleTimeString([], { 
@@ -157,28 +168,49 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
       case 'connected':
         return <Wifi className="h-3 w-3" />
       case 'connecting':
-        return <Clock className="h-3 w-3" />
+        return <RefreshCw className="h-3 w-3 animate-spin" />
       case 'disconnected':
         return <WifiOff className="h-3 w-3" />
+    }
+  }
+
+  const getConnectionText = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return 'Connected to chat'
+      case 'connecting':
+        return 'Connecting...'
+      case 'disconnected':
+        return 'Disconnected - Check your connection'
     }
   }
 
   return (
     <div className="flex flex-col h-[70vh] min-h-[500px] max-h-[800px]">
       {/* Connection Status Bar */}
-      <div className={`px-4 py-2 text-xs font-medium border-b backdrop-blur-sm transition-all duration-300 ${
+      <div className={`px-4 py-2 text-xs font-medium border-b backdrop-blur-sm transition-all duration-300 flex items-center justify-between ${
         connectionStatus === 'connected' 
           ? 'bg-green-500/10 text-green-400 border-green-500/20' 
           : connectionStatus === 'connecting'
           ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
           : 'bg-red-500/10 text-red-400 border-red-500/20'
       }`}>
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center gap-2">
           {getConnectionIcon()}
-          {connectionStatus === 'connected' && 'Connected to chat'}
-          {connectionStatus === 'connecting' && 'Connecting...'}
-          {connectionStatus === 'disconnected' && 'Disconnected - Check your connection'}
+          {getConnectionText()}
         </div>
+        
+        {connectionStatus === 'disconnected' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRetryConnection}
+            className="h-6 px-2 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Retry
+          </Button>
+        )}
       </div>
 
       {/* Messages Area */}
@@ -303,20 +335,17 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
             <Input
               type="text"
               value={message}
-              onChange={(e) => {
-                setMessage(e.target.value)
-                handleTyping()
-              }}
+              onChange={handleInputChange}
               onKeyPress={handleKeyPress}
-              placeholder={isConnected ? `Message ${recipientName}...` : 'Connecting...'}
+              placeholder={connectionStatus === 'connected' ? `Message ${recipientName}...` : 'Connecting...'}
               className="w-full border-yellow-400/30 bg-black/30 text-white placeholder-gray-400 rounded-2xl px-4 py-3 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-300 disabled:opacity-50"
-              disabled={!isConnected || sending}
+              disabled={sending}
               maxLength={1000}
             />
           </div>
           <Button
             onClick={handleSendMessage}
-            disabled={!message.trim() || sending || !isConnected}
+            disabled={!message.trim() || sending}
             className="bg-yellow-400 text-black hover:bg-yellow-500 rounded-2xl px-6 py-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-400/20"
             size="lg"
           >
