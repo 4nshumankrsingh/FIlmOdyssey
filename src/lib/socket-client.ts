@@ -1,127 +1,99 @@
 // src/lib/socket-client.ts
 'use client'
 
-import { io, Socket } from 'socket.io-client'
-
-class SocketClient {
-  private socket: Socket | null = null
+class SSEClient {
+  private eventSource: EventSource | null = null
   private reconnectAttempts = 0
-  private maxReconnectAttempts = 10
-  private reconnectDelay = 1000
+  private maxReconnectAttempts = 5
+  private reconnectDelay = 2000
+  private messageCallbacks: ((data: any) => void)[] = []
+  private connectionCallbacks: ((connected: boolean) => void)[] = []
 
-  connect(userId?: string, username?: string) {
-    if (this.socket?.connected) {
-      return this.socket
+  connect(userId?: string) {
+    if (this.eventSource) {
+      this.disconnect()
     }
 
-    // Use environment-aware URL selection
-    let socketUrl: string
-    let socketPath: string
-    
-    if (typeof window !== 'undefined') {
-      // Client-side: Use public URL for production, current origin for development
-      socketUrl = process.env.NODE_ENV === 'production' 
-        ? 'https://film-odyssey.vercel.app'
-        : window.location.origin
-    } else {
-      // Server-side: Use environment variables
-      socketUrl = process.env.NEXT_PUBLIC_WS_URL || 'https://film-odyssey.vercel.app'
-    }
-    
-    socketPath = '/api/socketio'
-    
-    console.log('🔌 Connecting to WebSocket:', { 
-      socketUrl, 
-      socketPath,
-      userId,
-      environment: process.env.NODE_ENV 
-    })
-    
     try {
-      this.socket = io(socketUrl, {
-        path: socketPath,
-        transports: ['websocket', 'polling'],
-        timeout: 15000,
-        reconnectionAttempts: this.maxReconnectAttempts,
-        reconnectionDelay: this.reconnectDelay,
-        reconnectionDelayMax: 5000,
-        forceNew: true,
-        auth: userId ? {
-          userId: userId,
-          username: username
-        } : undefined
-      })
+      const sseUrl = `/api/sse?userId=${userId || ''}`
+      console.log('🔌 Connecting to SSE:', sseUrl)
       
-      this.socket.on('connect', () => {
-        console.log('✅ Connected to WebSocket server')
+      this.eventSource = new EventSource(sseUrl)
+      
+      this.eventSource.onopen = () => {
+        console.log('✅ SSE Connected successfully')
         this.reconnectAttempts = 0
-        
-        // Join user's personal room if userId is provided
-        if (userId && this.socket) {
-          this.socket.emit('join-user', userId)
-        }
-      })
+        this.notifyConnectionChange(true)
+      }
       
-      this.socket.on('connect_error', (error) => {
-        console.error('❌ WebSocket connection error:', error)
-        this.reconnectAttempts++
-        
-        // Auto-reconnect with exponential backoff
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          setTimeout(() => {
-            if (this.socket && !this.socket.connected) {
-              console.log(`🔄 Reconnection attempt ${this.reconnectAttempts + 1}`)
-              this.socket.connect()
-            }
-          }, this.reconnectDelay * Math.pow(2, this.reconnectAttempts))
+      this.eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('📨 SSE Message received:', data)
+          this.messageCallbacks.forEach(callback => callback(data))
+        } catch (error) {
+          console.error('❌ Error parsing SSE message:', error)
         }
-      })
+      }
       
-      this.socket.on('disconnect', (reason) => {
-        console.log('🔌 WebSocket disconnected:', reason)
-        
-        if (reason === 'io server disconnect') {
-          // Server disconnected, need to manually reconnect
-          setTimeout(() => {
-            if (this.socket) {
-              this.socket.connect()
-            }
-          }, 1000)
-        }
-      })
+      this.eventSource.onerror = (error) => {
+        console.error('❌ SSE Connection error:', error)
+        this.notifyConnectionChange(false)
+        this.handleReconnection(userId)
+      }
       
-      this.socket.on('reconnect', (attempt) => {
-        console.log(`✅ Reconnected after ${attempt} attempts`)
-        this.reconnectAttempts = 0
-        
-        // Re-join user room after reconnection
-        if (userId && this.socket) {
-          this.socket.emit('join-user', userId)
-        }
-      })
-      
-      return this.socket
+      return this.eventSource
     } catch (error) {
-      console.error('❌ Error creating socket connection:', error)
+      console.error('❌ Error creating SSE connection:', error)
       return null
     }
   }
 
-  disconnect() {
-    if (this.socket) {
-      console.log('🔌 Disconnecting WebSocket')
-      this.socket.disconnect()
-      this.socket = null
+  private handleReconnection(userId?: string) {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++
+      console.log(`🔄 SSE Reconnection attempt ${this.reconnectAttempts}`)
+      
+      setTimeout(() => {
+        if (this.eventSource?.readyState !== EventSource.OPEN) {
+          this.connect(userId)
+        }
+      }, this.reconnectDelay * this.reconnectAttempts)
     }
   }
 
-  getSocket() {
-    return this.socket
+  private notifyConnectionChange(connected: boolean) {
+    this.connectionCallbacks.forEach(callback => callback(connected))
+  }
+
+  onMessage(callback: (data: any) => void) {
+    this.messageCallbacks.push(callback)
+    return () => {
+      const index = this.messageCallbacks.indexOf(callback)
+      if (index > -1) this.messageCallbacks.splice(index, 1)
+    }
+  }
+
+  onConnectionChange(callback: (connected: boolean) => void) {
+    this.connectionCallbacks.push(callback)
+    return () => {
+      const index = this.connectionCallbacks.indexOf(callback)
+      if (index > -1) this.connectionCallbacks.splice(index, 1)
+    }
+  }
+
+  disconnect() {
+    if (this.eventSource) {
+      console.log('🔌 Disconnecting SSE')
+      this.eventSource.close()
+      this.eventSource = null
+    }
+    this.notifyConnectionChange(false)
   }
 
   isConnected() {
-    return this.socket?.connected || false
+    return this.eventSource?.readyState === EventSource.OPEN
   }
 }
 
-export const socketClient = new SocketClient()
+export const sseClient = new SSEClient()

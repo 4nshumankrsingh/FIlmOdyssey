@@ -1,17 +1,14 @@
 // src/hooks/useSocket.ts
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import { Socket } from 'socket.io-client'
-import { socketClient } from '@/lib/socket-client'
+import { sseClient } from '@/lib/socket-client'
 
-// Define Message interface
 interface Message {
   id: string
   content: string
   senderId: string
-  recipientId: string
   timestamp: string
-  type: 'text' | 'image'
+  type: 'text'
   read: boolean
   sender?: {
     id: string
@@ -20,221 +17,72 @@ interface Message {
   }
 }
 
-interface TypingUser {
-  userId: string
-  username: string
-  chatId: string
-}
-
 export const useSocket = () => {
   const { data: session } = useSession()
   const [isConnected, setIsConnected] = useState(false)
-  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
-  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set())
-  const socketRef = useRef<Socket | null>(null)
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const connectionRef = useRef<boolean>(false)
 
-  // Connect to socket
   useEffect(() => {
     if (!session?.user?.id) {
-      console.log('No session user ID, skipping socket connection')
+      console.log('No session user ID, skipping SSE connection')
       return
     }
 
-    const initializeSocket = () => {
-      try {
-        console.log('🔄 Initializing WebSocket connection for user:', session.user.id)
-        
-        const socket = socketClient.connect(session.user.id, session.user.username)
-        
-        if (!socket) {
-          console.error('Failed to create socket connection')
-          return
-        }
-
-        socketRef.current = socket
-
-        socket.on('connect', () => {
-          console.log('✅ WebSocket connected successfully')
-          setIsConnected(true)
-        })
-
-        socket.on('disconnect', (reason) => {
-          console.log('🔌 WebSocket disconnected:', reason)
-          setIsConnected(false)
-        })
-
-        socket.on('connect_error', (error) => {
-          console.error('❌ WebSocket connection error:', error)
-          setIsConnected(false)
-        })
-
-        socket.on('user-status-change', (data: { userId: string; isOnline: boolean }) => {
-          setOnlineUsers(prev => {
-            const newSet = new Set(prev)
-            if (data.isOnline) {
-              newSet.add(data.userId)
-            } else {
-              newSet.delete(data.userId)
-            }
-            return newSet
-          })
-        })
-
-        socket.on('user-typing', (data: TypingUser) => {
-          setTypingUsers(prev => {
-            const filtered = prev.filter(user => 
-              !(user.userId === data.userId && user.chatId === data.chatId)
-            )
-            return [...filtered, data]
-          })
-        })
-
-        socket.on('user-stop-typing', (data: { userId: string; chatId: string }) => {
-          setTypingUsers(prev => 
-            prev.filter(user => !(user.userId === data.userId && user.chatId === data.chatId))
-          )
-        })
-
-      } catch (error) {
-        console.error('❌ Error initializing WebSocket:', error)
-        setIsConnected(false)
-      }
-    }
-
-    initializeSocket()
-
+    console.log('🔄 Initializing SSE connection for user:', session.user.id)
+    
+    // Connect to SSE
+    sseClient.connect(session.user.id)
+    
+    // Listen for connection changes
+    const unsubscribeConnection = sseClient.onConnectionChange((connected) => {
+      console.log('🔌 SSE Connection state changed:', connected)
+      setIsConnected(connected)
+      connectionRef.current = connected
+    })
+    
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-      }
-      if (socketRef.current) {
-        console.log('🧹 Cleaning up WebSocket connection')
-        socketRef.current.disconnect()
-        socketRef.current = null
-      }
-      setIsConnected(false)
+      unsubscribeConnection()
+      sseClient.disconnect()
     }
-  }, [session?.user?.id, session?.user?.username])
+  }, [session?.user?.id])
 
-  // Socket event handlers
-  const joinChat = useCallback((chatId: string) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit('join-chat', chatId)
-      console.log('Joined chat:', chatId)
-    } else {
-      console.warn('Cannot join chat: Socket not connected')
-    }
-  }, [isConnected])
-
-  const sendSocketMessage = useCallback((chatId: string, message: Message) => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.emit('send-message', {
-        chatId,
-        message
-      })
-      return true
-    } else {
-      console.warn('Cannot send message: Socket not connected')
-      return false
-    }
-  }, [isConnected])
-
-  const startTyping = useCallback((chatId: string) => {
-    if (socketRef.current && isConnected && session?.user) {
-      socketRef.current.emit('typing-start', {
-        chatId,
-        userId: session.user.id,
-        username: session.user.username
-      })
-    }
-  }, [isConnected, session?.user])
-
-  const stopTyping = useCallback((chatId: string) => {
-    if (socketRef.current && isConnected && session?.user) {
-      socketRef.current.emit('typing-stop', {
-        chatId,
-        userId: session.user.id
-      })
-    }
-  }, [isConnected, session?.user])
-
-  const markAsOnline = useCallback(() => {
-    if (socketRef.current && isConnected && session?.user) {
-      socketRef.current.emit('user-online', session.user.id)
-    }
-  }, [isConnected, session?.user])
-
-  // Event listeners setup
   const onMessage = useCallback((callback: (message: Message) => void) => {
-    if (socketRef.current) {
-      socketRef.current.on('new-message', callback)
-      return () => {
-        socketRef.current?.off('new-message', callback)
-      }
-    }
-    return () => {}
+    return sseClient.onMessage(callback)
   }, [])
 
-  const onMessageSent = useCallback((callback: (data: { tempId: string; actualId: string }) => void) => {
-    if (socketRef.current) {
-      socketRef.current.on('message-sent', callback)
-      return () => {
-        socketRef.current?.off('message-sent', callback)
-      }
-    }
-    return () => {}
-  }, [])
+  const sendMessage = useCallback(async (chatId: string, content: string) => {
+    if (!session?.user?.id || !content.trim()) return null
 
-  const onMessageError = useCallback((callback: (data: { tempId: string; error: string }) => void) => {
-    if (socketRef.current) {
-      socketRef.current.on('message-error', callback)
-      return () => {
-        socketRef.current?.off('message-error', callback)
-      }
-    }
-    return () => {}
-  }, [])
+    try {
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatId,
+          content: content.trim(),
+        }),
+      })
 
-  const onUserOnline = useCallback((callback: (data: { userId: string }) => void) => {
-    if (socketRef.current) {
-      socketRef.current.on('user-online', callback)
-      return () => {
-        socketRef.current?.off('user-online', callback)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('✅ Message sent successfully:', data)
+        return data.message
+      } else {
+        console.error('❌ Failed to send message')
+        return null
       }
+    } catch (error) {
+      console.error('❌ Error sending message:', error)
+      return null
     }
-    return () => {}
-  }, [])
-
-  const onUserOffline = useCallback((callback: (data: { userId: string }) => void) => {
-    if (socketRef.current) {
-      socketRef.current.on('user-offline', callback)
-      return () => {
-        socketRef.current?.off('user-offline', callback)
-      }
-    }
-    return () => {}
-  }, [])
+  }, [session?.user?.id])
 
   return {
-    socket: socketRef.current,
     isConnected,
-    typingUsers,
-    onlineUsers,
-    
-    // Methods
-    joinChat,
-    sendSocketMessage,
-    startTyping,
-    stopTyping,
-    markAsOnline,
-    
-    // Event listeners
     onMessage,
-    onMessageSent,
-    onMessageError,
-    onUserOnline,
-    onUserOffline
+    sendMessage
   }
 }
 
@@ -242,14 +90,8 @@ export const useSocket = () => {
 export const useChat = (chatId?: string) => {
   const { 
     isConnected, 
-    typingUsers, 
-    onlineUsers,
-    joinChat,
-    sendSocketMessage,
-    startTyping,
-    stopTyping,
-    onMessage,
-    onMessageSent
+    onMessage, 
+    sendMessage 
   } = useSocket()
 
   const { data: session } = useSession()
@@ -264,14 +106,24 @@ export const useChat = (chatId?: string) => {
     }
   }, [chatId, session?.user?.id])
 
-  // Join chat when chatId changes or connection is established
+  // Set up message listeners
   useEffect(() => {
-    if (chatId && isConnected) {
-      joinChat(chatId)
-    }
-  }, [chatId, isConnected, joinChat])
+    if (!chatId) return
 
-  const fetchMessages = useCallback(async () => {
+    const unsubscribeMessage = onMessage((message: Message) => {
+      // Only add messages for this chat
+      if (message.senderId !== session?.user?.id && !messages.some(msg => msg.id === message.id)) {
+        console.log('📨 New message for current chat:', message)
+        setMessages(prev => [...prev, message])
+      }
+    })
+
+    return () => {
+      unsubscribeMessage()
+    }
+  }, [chatId, onMessage, session?.user?.id, messages])
+
+  const fetchMessages = async () => {
     if (!chatId) return
     
     try {
@@ -288,119 +140,34 @@ export const useChat = (chatId?: string) => {
     } finally {
       setLoading(false)
     }
-  }, [chatId])
+  }
 
-  // Set up message listeners
-  useEffect(() => {
-    const unsubscribeMessage = onMessage((message: Message) => {
-      console.log('Received new message:', message)
-      setMessages(prev => {
-        // Avoid duplicate messages
-        if (prev.some(msg => msg.id === message.id)) {
-          return prev
-        }
-        return [...prev, message]
-      })
-    })
-
-    const unsubscribeMessageSent = onMessageSent((data: { tempId: string; actualId: string }) => {
-      console.log('Message sent confirmation:', data)
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === data.tempId ? { ...msg, id: data.actualId } : msg
-        )
-      )
-    })
-
-    return () => {
-      unsubscribeMessage()
-      unsubscribeMessageSent()
-    }
-  }, [onMessage, onMessageSent])
-
-  const sendMessage = useCallback(async (content: string) => {
-    if (!chatId || !session?.user?.id || !content.trim()) return
-
-    const tempId = `temp-${Date.now()}`
-    const tempMessage: Message = {
-      id: tempId,
-      content: content.trim(),
-      senderId: session.user.id,
-      recipientId: chatId,
-      timestamp: new Date().toISOString(),
-      type: 'text',
-      read: false,
-      sender: {
-        id: session.user.id,
-        username: session.user.username || '',
-      }
-    }
+  const sendChatMessage = useCallback(async (content: string) => {
+    if (!chatId || !content.trim()) return false
 
     setSending(true)
-    // Immediately add the message to the UI
-    setMessages(prev => [...prev, tempMessage])
-    
     try {
-      // Send via API
-      const response = await fetch('/api/chat/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chatId,
-          content: content.trim(),
-          tempId
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Message sent successfully:', data)
-        
-        // Update the temporary message with the actual one from server
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === tempId ? { ...data.message, read: true } : msg
-          )
-        )
-        
-        // Also send via Socket.io for real-time to other users
-        sendSocketMessage(chatId, data.message)
-      } else {
-        console.error('Failed to send message')
-        // Mark temporary message as failed
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === tempId ? { ...msg, id: `failed-${tempId}` } : msg
-          )
-        )
+      const message = await sendMessage(chatId, content)
+      if (message) {
+        // Add the sent message to the local state
+        setMessages(prev => [...prev, { ...message, read: true }])
+        return true
       }
+      return false
     } catch (error) {
-      console.error('Error sending message:', error)
-      // Mark temporary message as failed
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === tempId ? { ...msg, id: `failed-${tempId}` } : msg
-        )
-      )
+      console.error('Error sending chat message:', error)
+      return false
     } finally {
       setSending(false)
     }
-  }, [chatId, session?.user?.id, session?.user?.username, sendSocketMessage])
-
-  const currentTypingUsers = typingUsers.filter(user => user.chatId === chatId)
+  }, [chatId, sendMessage])
 
   return {
     messages,
     sending,
     loading,
     isConnected,
-    typingUsers: currentTypingUsers,
-    onlineUsers,
-    sendMessage,
-    startTyping: () => chatId && startTyping(chatId),
-    stopTyping: () => chatId && stopTyping(chatId),
+    sendMessage: sendChatMessage,
     refetchMessages: fetchMessages
   }
 }

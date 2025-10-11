@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from 'next/image'
-import { Send, Clock, Check, CheckCheck, Wifi, WifiOff, RefreshCw } from 'lucide-react'
+import { Send, Clock, Check, CheckCheck, RefreshCw } from 'lucide-react'
 
 interface ChatInterfaceProps {
   chatId: string
@@ -43,10 +43,7 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     sending,
     loading,
     isConnected,
-    typingUsers,
     sendMessage,
-    startTyping,
-    stopTyping,
     refetchMessages
   } = useChat(chatId)
 
@@ -99,9 +96,10 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
         // Enable auto-scroll when sending a new message
         setAutoScroll(true)
         
-        await sendMessage(message)
-        setMessage('')
-        stopTyping()
+        const success = await sendMessage(message)
+        if (success) {
+          setMessage('')
+        }
       } catch (error) {
         console.error('Error sending message:', error)
       }
@@ -115,30 +113,12 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     }
   }
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setMessage(value)
-    
-    if (value.trim()) {
-      startTyping()
-    } else {
-      stopTyping()
-    }
-  }
-
-  // Debounced typing stop
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      stopTyping()
-    }, 1000)
-
-    return () => clearTimeout(timer)
-  }, [message, stopTyping])
-
   const handleRetryConnection = useCallback(() => {
     if (refetchMessages) {
       refetchMessages()
     }
+    // Also trigger a page refresh to re-establish SSE connection
+    window.location.reload()
   }, [refetchMessages])
 
   const formatTime = (timestamp: string) => {
@@ -161,16 +141,14 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
     }
   }
 
-  const currentTypingUsers = typingUsers.filter(user => user.chatId === chatId)
-
   const getConnectionIcon = () => {
     switch (connectionStatus) {
       case 'connected':
-        return <Wifi className="h-3 w-3" />
+        return <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
       case 'connecting':
         return <RefreshCw className="h-3 w-3 animate-spin" />
       case 'disconnected':
-        return <WifiOff className="h-3 w-3" />
+        return <div className="w-2 h-2 bg-red-400 rounded-full" />
     }
   }
 
@@ -282,7 +260,9 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
                   {/* Failed message indicator */}
                   {msg.id.startsWith('failed-') && (
                     <div className="absolute -top-2 -right-2">
-                      <WifiOff className="h-4 w-4 text-red-400" />
+                      <div className="w-4 h-4 bg-red-400 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs">!</span>
+                      </div>
                     </div>
                   )}
                   
@@ -304,27 +284,6 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
           ))
         )}
         
-        {/* Typing Indicators */}
-        {currentTypingUsers.length > 0 && (
-          <div className="flex justify-start">
-            <div className="flex gap-3 max-w-[70%]">
-              <div className="w-8 h-8 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center flex-shrink-0">
-                <span className="text-gray-400 text-xs">?</span>
-              </div>
-              <div className="bg-gray-800/80 text-white px-4 py-3 rounded-2xl border border-gray-700/50">
-                <div className="flex items-center gap-2 text-sm text-gray-300">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                  {currentTypingUsers.map(user => user.username).join(', ')} is typing...
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-        
         <div ref={messagesEndRef} />
       </div>
 
@@ -335,17 +294,17 @@ export function ChatInterface({ chatId, recipientName, recipientId }: ChatInterf
             <Input
               type="text"
               value={message}
-              onChange={handleInputChange}
+              onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={connectionStatus === 'connected' ? `Message ${recipientName}...` : 'Connecting...'}
               className="w-full border-yellow-400/30 bg-black/30 text-white placeholder-gray-400 rounded-2xl px-4 py-3 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all duration-300 disabled:opacity-50"
-              disabled={sending}
+              disabled={sending || connectionStatus === 'disconnected'}
               maxLength={1000}
             />
           </div>
           <Button
             onClick={handleSendMessage}
-            disabled={!message.trim() || sending}
+            disabled={!message.trim() || sending || connectionStatus === 'disconnected'}
             className="bg-yellow-400 text-black hover:bg-yellow-500 rounded-2xl px-6 py-3 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-yellow-400/20"
             size="lg"
           >
