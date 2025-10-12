@@ -398,81 +398,94 @@ export default function FilmOdysseyHome() {
         </div>
 
 
-        {/* New Feature Box - Track Your Cinematic Journey */}
-        <Card className="w-full max-w-5xl mx-auto px-4 md:px-6 rounded-xl border-yellow-400/20 bg-black/40 backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/30 hover:bg-black/50 overflow-hidden">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col lg:flex-row items-center gap-4 md:gap-6">
-              {/* Text Content */}
-              <div className="flex-1 text-center lg:text-left">
-                <h3 className="text-xl md:text-2xl font-bold mb-3 text-yellow-400">
-                  Track your cinematic journey
-                </h3>
-                
-                <div className="space-y-3">
-                  {/* Track Progress */}
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-400/10 flex items-center justify-center mt-0.5">
-                      <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-white mb-1">Track Progress</h4>
-                      <p className="text-gray-300 text-sm md:text-base">
-                        Keep track of your watching statistics and progress.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Watch Trailers */}
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-400/10 flex items-center justify-center mt-0.5">
-                      <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-white mb-1">Watch Trailers</h4>
-                      <p className="text-gray-300 text-sm md:text-base">
-                        Watch trailers and clips directly in the app.
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {/* Social Features */}
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-yellow-400/10 flex items-center justify-center mt-0.5">
-                      <svg className="w-3 h-3 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-white mb-1">Social Features</h4>
-                      <p className="text-gray-300 text-sm md:text-base">
-                        Follow friends and share your watching experience.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Image */}
-              <div className="flex-1 flex justify-center lg:justify-end">
-                <div className="relative w-full max-w-sm h-48 md:h-56 lg:h-64 rounded-lg overflow-hidden border border-yellow-400/20">
-                  <Image
-                    src="/homePageBox.png"
-                    alt="Cinematic Journey"
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    priority
-                  />
-                </div>
-              </div>
+{/* New Feature Box - Track Your Cinematic Journey */}
+<Card className="w-full max-w-5xl mx-auto px-4 md:px-6 rounded-xl border-yellow-400/20 bg-black/40 backdrop-blur-sm transition-all duration-300 hover:border-yellow-400/30 hover:bg-black/50 overflow-hidden mb-12">
+  <CardContent className="p-4 md:p-6">
+    <div className="flex flex-col lg:flex-row items-center gap-6 md:gap-8">
+      {/* Text Content */}
+      <div className="flex-1 text-center lg:text-left">
+        <h3 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-yellow-400">
+          Track your cinematic journey
+        </h3>
+        
+        <div className="space-y-4 md:space-y-5">
+          {/* Track Progress */}
+          <div className="flex items-start gap-3 md:gap-4">
+            <div className="flex-shrink-0 w-6 h-6 md:w-7 md:h-7 rounded-full bg-yellow-400/10 flex items-center justify-center mt-0.5">
+              <svg className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <h4 className="font-semibold text-white mb-1 md:mb-2 text-base md:text-lg">Track Progress</h4>
+              <p className="text-gray-300 text-sm md:text-base leading-relaxed">
+                Keep track of your watching statistics and progress.
+              </p>
+            </div>
+          </div>
+          
+          {/* Watch Trailers */}
+          <div className="flex items-start gap-3 md:gap-4">
+            <div className="flex-shrink-0 w-6 h-6 md:w-7 md:h-7 rounded-full bg-yellow-400/10 flex items-center justify-center mt-0.5">
+              <svg className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-1 md:mb-2 text-base md:text-lg">Watch Trailers</h4>
+              <p className="text-gray-300 text-sm md:text-base leading-relaxed">
+                Watch trailers and clips directly in the app.
+              </p>
+            </div>
+          </div>
+          
+          {/* Social Features */}
+          <div className="flex items-start gap-3 md:gap-4">
+            <div className="flex-shrink-0 w-6 h-6 md:w-7 md:h-7 rounded-full bg-yellow-400/10 flex items-center justify-center mt-0.5">
+              <svg className="w-3 h-3 md:w-4 md:h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-1 md:mb-2 text-base md:text-lg">Social Features</h4>
+              <p className="text-gray-300 text-sm md:text-base leading-relaxed">
+                Follow friends and share your watching experience.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Image - Fixed for mobile */}
+      <div className="flex-1 flex justify-center lg:justify-end w-full">
+        <div className="relative w-full max-w-md h-48 md:h-56 lg:h-64 rounded-lg overflow-hidden border border-yellow-400/20 bg-black/20">
+          <Image
+            src="/homePageBox.png"
+            alt="Cinematic Journey"
+            fill
+            className="object-cover"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            priority
+            onError={(e) => {
+              // Fallback if image fails to load
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              target.parentElement!.innerHTML = `
+                <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-yellow-400/10 to-black/30 p-4">
+                  <svg class="w-12 h-12 text-yellow-400/50 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"></path>
+                  </svg>
+                  <p class="text-yellow-400/70 text-sm text-center">Track Your Cinematic Journey</p>
+                </div>
+              `;
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  </CardContent>
+</Card>
       </main>
 
       {/* Footer */}
