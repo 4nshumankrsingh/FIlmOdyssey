@@ -14,7 +14,7 @@
   <img src="/public/home-page.png" alt="FilmOdyssey Home Page" width="800" />
 </div>
 
-FilmOdyssey is a comprehensive social platform designed for film enthusiasts to enhance their movie-watching experience. Built with Next.js and integrated with advanced AI features, it allows users to search for movies, rate and review them, create lists, and track their viewing history. The app offers personalized watchlists, enables users to connect with fellow cinephiles, and facilitates sharing cinematic experiences."
+FilmOdyssey is a comprehensive social platform designed for film enthusiasts to enhance their movie-watching experience. Built with Next.js and integrated with advanced AI features, it allows users to search for movies, rate and review them, create lists, and track their viewing history. The app offers personalized watchlists, enables users to connect with fellow cinephiles, and facilitates sharing cinematic experiences.
 
 
 
