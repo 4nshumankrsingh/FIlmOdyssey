@@ -239,7 +239,6 @@ export function AIChatModal({ isOpen, onClose }: AIChatModalProps) {
         </Card>
       </div>
 
-      {/* Add CSS Animations */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; }
